@@ -1,0 +1,53 @@
+#!/bin/bash
+# necessary packages:   libimage-exiftool-perl
+
+PATTERN="%Y-%m-%d %H.%M.%S"
+PREVIOUS_DATETIME=""
+COUNTER=0
+
+read -e -p "Path to folder whoes files will be renamed: "
+[ ! -z "$REPLY" ] && IMAGE_PATH="${REPLY}"
+
+cd ${IMAGE_PATH}
+# loop through all files, use \n as separator to support whitespaces in filename; order alphabetically while interpret numbers
+find . -type f -printf "%f\n" | sort -V  | while read i
+do
+
+    # get datetime from exif data
+    DATETIME="$(exiftool -t -s -d "${PATTERN}" -CreateDate "$i" | sed -r 's/^\s*CreateDate\s*//g' )"
+
+    # if not available, get last modification time from file
+    if [ -z "$DATETIME" ]; then
+        DATETIME="$(date -r "$i" "+${PATTERN}")"
+
+        EXIF_DATETIME="$(date -r "$i" "+%Y-%m-%d %H:%M:%S")"
+        echo "update exif timestamp to ${DATETIME}"
+        exiftool -overwrite_original_in_place -CreateDate="${EXIF_DATETIME}" "${i}"
+    fi
+
+    # increment COUNTER on same DATETIME or reset otherwise
+    if [ "$PREVIOUS_DATETIME" == "$DATETIME" ]; then
+        COUNTER=$((COUNTER + 1))
+    else
+        PREVIOUS_DATETIME="${DATETIME}"
+        COUNTER=0
+    fi
+
+    # build new filename
+    NEW_FILENAME="${DATETIME}"
+    if [ "${COUNTER}" -gt 0 ]; then
+        NEW_FILENAME="${NEW_FILENAME} (${COUNTER})"
+    fi
+    EXTENSION="$(echo "${i}" | grep -o '[^.]*$')"
+    NEW_FILENAME="${NEW_FILENAME}.${EXTENSION}"
+
+    # rename file if necessary
+    if [ "${i}" != "${NEW_FILENAME}" ]; then
+        echo "${i}  -->  ${NEW_FILENAME}"
+        mv "${i}" "${NEW_FILENAME}"
+    else
+        echo "keep  ${NEW_FILENAME}"
+    fi
+done
+
+
