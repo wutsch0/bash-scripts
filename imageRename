@@ -4,12 +4,30 @@
 #
 # DEFINE DEFAULT VALUES
 #
-COUNTER=0
 DRYRUN="false"
 EXIFUPDATE="false"
 PATTERN="%Y-%m-%d %H.%M.%S"
-PREVIOUS_DATETIME=""
 
+
+#
+# DEFINE FUNCTIONS
+#
+get_filename () {
+    # expect 2 parameters, first should be datetime and second old filename
+    datetime="$1"
+    old_filename="$2"
+    extension="$(echo "${old_filename}" | grep -o '[^.]*$')"
+
+    counter=0
+    filename="$datetime.$extension"
+    while [ -f "$filename" ]; do
+         counter=$((counter + 1))
+         filename="$datetime ($counter).$extension"
+    done
+
+    echo "$filename"
+    return 0
+}
 
 #
 # READ SCRIPT ARGUMENTS
@@ -95,30 +113,17 @@ do
         fi
     fi
 
-    # increment COUNTER on same DATETIME or reset otherwise
-    if [ "$PREVIOUS_DATETIME" == "$DATETIME" ]; then
-        COUNTER=$((COUNTER + 1))
-    else
-        PREVIOUS_DATETIME="${DATETIME}"
-        COUNTER=0
-    fi
-
-    # build new filename
-    NEW_FILENAME="${DATETIME}"
-    if [ "${COUNTER}" -gt 0 ]; then
-        NEW_FILENAME="${NEW_FILENAME} (${COUNTER})"
-    fi
-    EXTENSION="$(echo "${i}" | grep -o '[^.]*$')"
-    NEW_FILENAME="${NEW_FILENAME}.${EXTENSION}"
+    # get new filename
+    new_filename=$(get_filename "${DATETIME}" "${i}")
 
     # rename file if necessary
-    if [ "${i}" != "${NEW_FILENAME}" ]; then
-        echo "${i}  -->  ${NEW_FILENAME}"
+    if [ "${i}" != "${new_filename}" ]; then
+        echo "${i}  -->  ${new_filename}"
         if [ "$DRYRUN" == "false" ]; then
-            mv "${i}" "${NEW_FILENAME}"
+            mv "${i}" "${new_filename}"
         fi
     else
-        echo "keep  ${NEW_FILENAME}"
+        echo "keep  ${new_filename}"
     fi
 done
 
