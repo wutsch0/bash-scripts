@@ -109,7 +109,6 @@ get_timestamp() {
   timestamp=$(get_exif_timestamp "${filename}")
 
   # if not available, get last modification time from file
-  local message
   if [[ -z "${timestamp}" ]]; then
     timestamp="$(date -r "${filename}" "+${PATTERN}")"
 
@@ -142,7 +141,7 @@ rename_file() {
   if [[ "${old_filename}" != "${new_filename}" ]]; then
     echo "${old_filename}  -->  ${new_filename}"
     if [[ "${DRYRUN}" == 'false' ]]; then
-      mv "${old_filename}" "${new_filename}"
+      mv -- "${old_filename}" "${new_filename}"
     fi
   else
     echo "keep  ${new_filename}"
