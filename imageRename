@@ -21,18 +21,18 @@ PATTERN="%Y-%m-%d %H.%M.%S"
 #   $1 new filename
 #######################################
 get_filename() {
-  datetime="$1"
-  old_filename="$2"
+  datetime="${1}"
+  old_filename="${2}"
   extension="$(echo "${old_filename}" | grep -o '[^.]*$')"
 
   counter=0
-  filename="$datetime.$extension"
-  while [ -f "$filename" ]; do
+  filename="${datetime}.${extension}"
+  while [ -f "${filename}" ]; do
      counter=$((counter + 1))
-     filename="$datetime ($counter).$extension"
+     filename="${datetime} (${counter}).${extension}"
   done
 
-  echo "$filename"
+  echo "${filename}"
   return 0
 }
 
@@ -40,10 +40,9 @@ get_filename() {
 # READ SCRIPT ARGUMENTS
 #
 ADDITIONAL=()
-while [[ $# -gt 0 ]]
-do
-  key="$1"
-  case "$key" in
+while [[ $# -gt 0 ]]; do
+  key="${1}"
+  case "${key}" in
     -e|--exifupdate)
       EXIFUPDATE="true"
       shift # past argument
@@ -53,12 +52,12 @@ do
       shift # past argument
     ;;
     -p|--pattern)
-      PATTERN="$2"
+      PATTERN="${2}"
       shift # past argument
       shift # past value
     ;;
     *)  # unknown option
-      ADDITIONAL+=("$1") # save it in an array for later
+      ADDITIONAL+=("${1}") # save it in an array for later
       shift # past argument
     ;;
   esac
@@ -82,13 +81,13 @@ else
   exit 4
 fi
 
-if [ ! -d "$IMAGE_PATH" ]; then
-  echo "Path '$IMAGE_PATH' does not exist. Existing"
+if [ ! -d "${IMAGE_PATH}" ]; then
+  echo "Path '${IMAGE_PATH}' does not exist. Existing"
   exit 5
 fi
 
 
-if [ "$DRYRUN" == "true" ]; then
+if [ "${DRYRUN}" == "true" ]; then
   echo ""
   echo "NOTE: This is a DRYRUN only"
   echo "---------------------------"
@@ -102,22 +101,21 @@ fi
 cd ${IMAGE_PATH}
 # loop through all files, use \n as separator to support whitespaces in
 # filename; order alphabetically while interpret numbers
-find . -type f -printf "%f\n" | sort -V  | while read i
-do
+find . -type f -printf "%f\n" | sort -V  | while read i; do
 
   # get datetime from exif data
-  EXIF_CREATE_DATE="$(exiftool -t -s -d "${PATTERN}" -CreateDate "$i")"
+  EXIF_CREATE_DATE="$(exiftool -t -s -d "${PATTERN}" -CreateDate "${i}")"
   DATETIME="$(echo "${EXIF_CREATE_DATE}" | sed -r 's/^\s*CreateDate\s*//g')"
 
   # if not available, get last modification time from file
-  if [ -z "$DATETIME" ]; then
-    DATETIME="$(date -r "$i" "+${PATTERN}")"
+  if [ -z "${DATETIME}" ]; then
+    DATETIME="$(date -r "${i}" "+${PATTERN}")"
     echo "${i}: last modification time used"
 
-    if [ "$EXIFUPDATE" == "true" ]; then
-      EXIF_DATETIME="$(date -r "$i" "+%Y-%m-%d %H:%M:%S")"
+    if [ "${EXIFUPDATE}" == "true" ]; then
+      EXIF_DATETIME="$(date -r "${i}" "+%Y-%m-%d %H:%M:%S")"
       echo "${i}: update exif timestamp to ${EXIF_DATETIME}"
-      if [ "$DRYRUN" == "false" ]; then
+      if [ "${DRYRUN}" == "false" ]; then
         exiftool -overwrite_original_in_place \
           -CreateDate="${EXIF_DATETIME}" "${i}" 2>&1 >/dev/null
       fi
@@ -130,7 +128,7 @@ do
   # rename file if necessary
   if [ "${i}" != "${new_filename}" ]; then
     echo "${i}  -->  ${new_filename}"
-    if [ "$DRYRUN" == "false" ]; then
+    if [ "${DRYRUN}" == "false" ]; then
       mv "${i}" "${new_filename}"
     fi
   else
