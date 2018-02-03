@@ -1,4 +1,6 @@
 #!/bin/bash
+# Renames image files using their exif timestamp within the filename. If exif timestamp is not availabel the script
+# uses the last modification timestamp instead. In case of filename collision a counter is added.
 # necessary packages:   libimage-exiftool-perl
 
 #
@@ -9,24 +11,30 @@ EXIFUPDATE="false"
 PATTERN="%Y-%m-%d %H.%M.%S"
 
 
-#
-# DEFINE FUNCTIONS
-#
-get_filename () {
-    # expect 2 parameters, first should be datetime and second old filename
-    datetime="$1"
-    old_filename="$2"
-    extension="$(echo "${old_filename}" | grep -o '[^.]*$')"
+#######################################
+# Generates new filename
+# Globals:
+#   None
+# Arguments:
+#   $1 timestamp of file as string
+#   $2 previous filename
+# Returns:
+#   $1 new filename
+#######################################
+get_filename() {
+  datetime="$1"
+  old_filename="$2"
+  extension="$(echo "${old_filename}" | grep -o '[^.]*$')"
 
-    counter=0
-    filename="$datetime.$extension"
-    while [ -f "$filename" ]; do
-         counter=$((counter + 1))
-         filename="$datetime ($counter).$extension"
-    done
+  counter=0
+  filename="$datetime.$extension"
+  while [ -f "$filename" ]; do
+     counter=$((counter + 1))
+     filename="$datetime ($counter).$extension"
+  done
 
-    echo "$filename"
-    return 0
+  echo "$filename"
+  return 0
 }
 
 #
@@ -35,26 +43,26 @@ get_filename () {
 ADDITIONAL=()
 while [[ $# -gt 0 ]]
 do
-    key="$1"
-    case "$key" in
-        -e|--exifupdate)
-            EXIFUPDATE="true"
-            shift # past argument
-        ;;
-        -d|--dryrun)
-            DRYRUN="true"
-            shift # past argument
-        ;;
-        -p|--pattern)
-            PATTERN="$2"
-            shift # past argument
-            shift # past value
-        ;;
-        *)  # unknown option
-            ADDITIONAL+=("$1") # save it in an array for later
-            shift # past argument
-        ;;
-    esac
+  key="$1"
+  case "$key" in
+    -e|--exifupdate)
+      EXIFUPDATE="true"
+      shift # past argument
+    ;;
+    -d|--dryrun)
+      DRYRUN="true"
+      shift # past argument
+    ;;
+    -p|--pattern)
+      PATTERN="$2"
+      shift # past argument
+      shift # past value
+    ;;
+    *)  # unknown option
+      ADDITIONAL+=("$1") # save it in an array for later
+      shift # past argument
+    ;;
+  esac
 done
 
 
@@ -63,16 +71,16 @@ done
 #
 if [ ${#ADDITIONAL[@]} -gt 0 ];
 then
-    if [ ${#ADDITIONAL[@]} -gt 1 ];
-    then
-        echo "To many parameters. Exiting"
-        exit 3
-    else
-        IMAGE_PATH="${ADDITIONAL[0]}"
-    fi
+  if [ ${#ADDITIONAL[@]} -gt 1 ];
+  then
+    echo "To many parameters. Exiting"
+    exit 3
+  else
+    IMAGE_PATH="${ADDITIONAL[0]}"
+  fi
 else
-    echo "To few parameters. Exiting"
-    exit 4
+  echo "To few parameters. Exiting"
+  exit 4
 fi
 
 if [ ! -d "$IMAGE_PATH" ]; then
@@ -82,10 +90,10 @@ fi
 
 
 if [ "$DRYRUN" == "true" ]; then
-    echo ""
-    echo "NOTE: This is a DRYRUN only"
-    echo "---------------------------"
-    echo ""
+  echo ""
+  echo "NOTE: This is a DRYRUN only"
+  echo "---------------------------"
+  echo ""
 fi
 
 
@@ -97,34 +105,32 @@ cd ${IMAGE_PATH}
 find . -type f -printf "%f\n" | sort -V  | while read i
 do
 
-    # get datetime from exif data
-    DATETIME="$(exiftool -t -s -d "${PATTERN}" -CreateDate "$i" | sed -r 's/^\s*CreateDate\s*//g' )"
+  # get datetime from exif data
+  DATETIME="$(exiftool -t -s -d "${PATTERN}" -CreateDate "$i" | sed -r 's/^\s*CreateDate\s*//g' )"
 
-    # if not available, get last modification time from file
-    if [ -z "$DATETIME" ]; then
-        DATETIME="$(date -r "$i" "+${PATTERN}")"
+  # if not available, get last modification time from file
+  if [ -z "$DATETIME" ]; then
+    DATETIME="$(date -r "$i" "+${PATTERN}")"
 
-        if [ "$EXIFUPDATE" == "true" ]; then
-            EXIF_DATETIME="$(date -r "$i" "+%Y-%m-%d %H:%M:%S")"
-            echo "${i}: update exif timestamp to ${EXIF_DATETIME}"
-            if [ "$DRYRUN" == "false" ]; then
-                exiftool -overwrite_original_in_place -CreateDate="${EXIF_DATETIME}" "${i}" 2>&1 >/dev/null
-            fi
-        fi
+    if [ "$EXIFUPDATE" == "true" ]; then
+      EXIF_DATETIME="$(date -r "$i" "+%Y-%m-%d %H:%M:%S")"
+      echo "${i}: update exif timestamp to ${EXIF_DATETIME}"
+      if [ "$DRYRUN" == "false" ]; then
+        exiftool -overwrite_original_in_place -CreateDate="${EXIF_DATETIME}" "${i}" 2>&1 >/dev/null
+      fi
     fi
+  fi
 
-    # get new filename
-    new_filename=$(get_filename "${DATETIME}" "${i}")
+  # get new filename
+  new_filename=$(get_filename "${DATETIME}" "${i}")
 
-    # rename file if necessary
-    if [ "${i}" != "${new_filename}" ]; then
-        echo "${i}  -->  ${new_filename}"
-        if [ "$DRYRUN" == "false" ]; then
-            mv "${i}" "${new_filename}"
-        fi
-    else
-        echo "keep  ${new_filename}"
+  # rename file if necessary
+  if [ "${i}" != "${new_filename}" ]; then
+    echo "${i}  -->  ${new_filename}"
+    if [ "$DRYRUN" == "false" ]; then
+      mv "${i}" "${new_filename}"
     fi
+  else
+    echo "keep  ${new_filename}"
+  fi
 done
-
-
