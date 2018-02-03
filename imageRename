@@ -89,7 +89,7 @@ main() {
 
     # get datetime from exif data
     exif_create_date="$(exiftool -t -s -d "${PATTERN}" -CreateDate "${filename}")"
-    timestamp="$(echo "${exif_create_date}" | sed -r 's/^\s*CreateDate\s*//g')"
+    timestamp="${exif_create_date#CreateDate[[:space:]]*}"
 
     # if not available, get last modification time from file
     if [[ -z "${timestamp}" ]]; then
