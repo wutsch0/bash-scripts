@@ -21,12 +21,16 @@ PATTERN="%Y-%m-%d %H.%M.%S"
 #   $1 new filename
 #######################################
 generate_filename() {
-  datetime="${1}"
-  old_filename="${2}"
-  extension="$(echo "${old_filename}" | grep -o '[^.]*$')"
+  local datetime
+  local old_filename
+  readonly datetime="${1}"
+  readonly old_filename="${2}"
 
-  counter=0
-  new_filename="${datetime}.${extension}"
+  local extension
+  readonly extension="$(echo "${old_filename}" | grep -o '[^.]*$')"
+
+  local counter=0
+  local new_filename="${datetime}.${extension}"
   while [[ -f "${new_filename}" ]]; do
      counter=$((counter + 1))
      new_filename="${datetime} (${counter}).${extension}"
@@ -36,105 +40,112 @@ generate_filename() {
   return 0
 }
 
-#
-# READ SCRIPT ARGUMENTS
-#
-ADDITIONAL=()
-while [[ $# -gt 0 ]]; do
-  key="${1}"
-  case "${key}" in
-    -e|--exifupdate)
-      EXIFUPDATE='true'
-      shift # past argument
-    ;;
-    -d|--dryrun)
-      DRYRUN='true'
-      shift # past argument
-    ;;
-    -p|--pattern)
-      PATTERN="${2}"
-      shift # past argument
-      shift # past value
-    ;;
-    *)  # unknown option
-      ADDITIONAL+=("${1}") # save it in an array for later
-      shift # past argument
-    ;;
-  esac
-done
-readonly ADDITIONAL
-readonly DRYRUN
-readonly EXIFUPDATE
-readonly PATTERN
+#######################################
+# TODO: split into more functions
+#######################################
+main() {
+  #
+  # READ SCRIPT ARGUMENTS
+  #
+  local ADDITIONAL=()
+  while [[ $# -gt 0 ]]; do
+    key="${1}"
+    case "${key}" in
+      -e|--exifupdate)
+        EXIFUPDATE='true'
+        shift # past argument
+      ;;
+      -d|--dryrun)
+        DRYRUN='true'
+        shift # past argument
+      ;;
+      -p|--pattern)
+        PATTERN="${2}"
+        shift # past argument
+        shift # past value
+      ;;
+      *)  # unknown option
+        ADDITIONAL+=("${1}") # save it in an array for later
+        shift # past argument
+      ;;
+    esac
+  done
+  readonly ADDITIONAL
+  readonly DRYRUN
+  readonly EXIFUPDATE
+  readonly PATTERN
 
-#
-# VALIDATE ARGUMENTS
-#
-if [[ ${#ADDITIONAL[@]} -gt 0 ]];
-then
-  if [[ ${#ADDITIONAL[@]} -gt 1 ]];
+  #
+  # VALIDATE ARGUMENTS
+  #
+  if [[ ${#ADDITIONAL[@]} -gt 0 ]];
   then
-    echo "To many parameters. Exiting"
-    exit 3
+    if [[ ${#ADDITIONAL[@]} -gt 1 ]];
+    then
+      echo "To many parameters. Exiting"
+      exit 3
+    else
+      readonly IMAGE_PATH="${ADDITIONAL[0]}"
+    fi
   else
-    readonly IMAGE_PATH="${ADDITIONAL[0]}"
+    echo "To few parameters. Exiting"
+    exit 4
   fi
-else
-  echo "To few parameters. Exiting"
-  exit 4
-fi
 
-if [[ ! -d "${IMAGE_PATH}" ]]; then
-  echo "Path '${IMAGE_PATH}' does not exist. Existing"
-  exit 5
-fi
+  if [[ ! -d "${IMAGE_PATH}" ]]; then
+    echo "Path '${IMAGE_PATH}' does not exist. Existing"
+    exit 5
+  fi
 
 
-if [[ "${DRYRUN}" == 'true' ]]; then
-  echo ""
-  echo "NOTE: This is a DRYRUN only"
-  echo "---------------------------"
-  echo ""
-fi
+  if [[ "${DRYRUN}" == 'true' ]]; then
+    echo ""
+    echo "NOTE: This is a DRYRUN only"
+    echo "---------------------------"
+    echo ""
+  fi
 
 
-#
-# LOOP THROUGH FILES IN PATH
-#
-cd "${IMAGE_PATH}"
-# loop through all files, use \n as separator to support whitespaces in
-# filename; order alphabetically while interpret numbers
-find . -type f -printf "%f\n" | sort -V  | while read filename; do
+  #
+  # LOOP THROUGH FILES IN PATH
+  #
+  cd "${IMAGE_PATH}"
+  # loop through all files, use \n as separator to support whitespaces in
+  # filename; order alphabetically while interpret numbers
+  find . -type f -printf "%f\n" | sort -V  | while read filename; do
 
-  # get datetime from exif data
-  exif_create_date="$(exiftool -t -s -d "${PATTERN}" -CreateDate "${filename}")"
-  timestamp="$(echo "${exif_create_date}" | sed -r 's/^\s*CreateDate\s*//g')"
+    # get datetime from exif data
+    exif_create_date="$(exiftool -t -s -d "${PATTERN}" -CreateDate "${filename}")"
+    timestamp="$(echo "${exif_create_date}" | sed -r 's/^\s*CreateDate\s*//g')"
 
-  # if not available, get last modification time from file
-  if [[ -z "${timestamp}" ]]; then
-    timestamp="$(date -r "${filename}" "+${PATTERN}")"
-    echo "${filename}: last modification time used"
+    # if not available, get last modification time from file
+    if [[ -z "${timestamp}" ]]; then
+      timestamp="$(date -r "${filename}" "+${PATTERN}")"
+      echo "${filename}: last modification time used"
 
-    if [[ "${EXIFUPDATE}" == 'true' ]]; then
-      exif_timestamp="$(date -r "${filename}" "+%Y-%m-%d %H:%M:%S")"
-      echo "${filename}: update exif timestamp to ${exif_timestamp}"
-      if [[ "${DRYRUN}" == 'false' ]]; then
-        exiftool -overwrite_original_in_place \
-          -CreateDate="${exif_timestamp}" "${filename}" 2>&1 >/dev/null
+      if [[ "${EXIFUPDATE}" == 'true' ]]; then
+        exif_timestamp="$(date -r "${filename}" "+%Y-%m-%d %H:%M:%S")"
+        echo "${filename}: update exif timestamp to ${exif_timestamp}"
+        if [[ "${DRYRUN}" == 'false' ]]; then
+          exiftool -overwrite_original_in_place \
+            -CreateDate="${exif_timestamp}" "${filename}" 2>&1 >/dev/null
+        fi
       fi
     fi
-  fi
 
-  # get new filename
-  new_filename=$(generate_filename "${timestamp}" "${filename}")
+    # get new filename
+    new_filename=$(generate_filename "${timestamp}" "${filename}")
 
-  # rename file if necessary
-  if [[ "${filename}" != "${new_filename}" ]]; then
-    echo "${filename}  -->  ${new_filename}"
-    if [[ "${DRYRUN}" == 'false' ]]; then
-      mv "${filename}" "${new_filename}"
+    # rename file if necessary
+    if [[ "${filename}" != "${new_filename}" ]]; then
+      echo "${filename}  -->  ${new_filename}"
+      if [[ "${DRYRUN}" == 'false' ]]; then
+        mv "${filename}" "${new_filename}"
+      fi
+    else
+      echo "keep  ${new_filename}"
     fi
-  else
-    echo "keep  ${new_filename}"
-  fi
-done
+  done
+}
+
+main "$@"
