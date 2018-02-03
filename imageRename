@@ -27,7 +27,7 @@ get_filename() {
 
   counter=0
   filename="${datetime}.${extension}"
-  while [ -f "${filename}" ]; do
+  while [[ -f "${filename}" ]]; do
      counter=$((counter + 1))
      filename="${datetime} (${counter}).${extension}"
   done
@@ -67,9 +67,9 @@ done
 #
 # VALIDATE ARGUMENTS
 #
-if [ ${#ADDITIONAL[@]} -gt 0 ];
+if [[ ${#ADDITIONAL[@]} -gt 0 ]];
 then
-  if [ ${#ADDITIONAL[@]} -gt 1 ];
+  if [[ ${#ADDITIONAL[@]} -gt 1 ]];
   then
     echo "To many parameters. Exiting"
     exit 3
@@ -81,13 +81,13 @@ else
   exit 4
 fi
 
-if [ ! -d "${IMAGE_PATH}" ]; then
+if [[ ! -d "${IMAGE_PATH}" ]]; then
   echo "Path '${IMAGE_PATH}' does not exist. Existing"
   exit 5
 fi
 
 
-if [ "${DRYRUN}" == "true" ]; then
+if [[ "${DRYRUN}" == "true" ]]; then
   echo ""
   echo "NOTE: This is a DRYRUN only"
   echo "---------------------------"
@@ -108,14 +108,14 @@ find . -type f -printf "%f\n" | sort -V  | while read i; do
   DATETIME="$(echo "${EXIF_CREATE_DATE}" | sed -r 's/^\s*CreateDate\s*//g')"
 
   # if not available, get last modification time from file
-  if [ -z "${DATETIME}" ]; then
+  if [[ -z "${DATETIME}" ]]; then
     DATETIME="$(date -r "${i}" "+${PATTERN}")"
     echo "${i}: last modification time used"
 
-    if [ "${EXIFUPDATE}" == "true" ]; then
+    if [[ "${EXIFUPDATE}" == "true" ]]; then
       EXIF_DATETIME="$(date -r "${i}" "+%Y-%m-%d %H:%M:%S")"
       echo "${i}: update exif timestamp to ${EXIF_DATETIME}"
-      if [ "${DRYRUN}" == "false" ]; then
+      if [[ "${DRYRUN}" == "false" ]]; then
         exiftool -overwrite_original_in_place \
           -CreateDate="${EXIF_DATETIME}" "${i}" 2>&1 >/dev/null
       fi
@@ -126,9 +126,9 @@ find . -type f -printf "%f\n" | sort -V  | while read i; do
   new_filename=$(get_filename "${DATETIME}" "${i}")
 
   # rename file if necessary
-  if [ "${i}" != "${new_filename}" ]; then
+  if [[ "${i}" != "${new_filename}" ]]; then
     echo "${i}  -->  ${new_filename}"
-    if [ "${DRYRUN}" == "false" ]; then
+    if [[ "${DRYRUN}" == "false" ]]; then
       mv "${i}" "${new_filename}"
     fi
   else
