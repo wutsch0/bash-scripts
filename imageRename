@@ -6,7 +6,7 @@
 DRYRUN='false'
 EXIFUPDATE='false'
 IMAGE_PATH="."
-PATTERN="%Y-%m-%d %H.%M.%S"
+PATTERN="%Y-%m-%d---%H-%M-%S"
 
 #######################################
 # Generates new filename
