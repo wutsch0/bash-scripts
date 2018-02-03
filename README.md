@@ -3,6 +3,7 @@ All scripts should follow [googles shell style guide](https://google.github.io/s
 
 ## List of scripts
 #### imageRename
-Renames images using their exif timestamp and adds a counter if necessary.
-If exif timestamp is not availabel the scripts uses last modification timestamp instead
+Renames image files using their exif timestamp within the filename. If
+exif timestamp is not availabel the script uses the last modification
+timestamp instead. In case of filename collision a counter is added.
 
