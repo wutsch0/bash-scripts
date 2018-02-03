@@ -1,6 +1,5 @@
 #!/bin/bash
-# Renames image files using their exif timestamp within the filename. If exif timestamp is not availabel the script
-# uses the last modification timestamp instead. In case of filename collision a counter is added.
+# Rename image files using their exif or last modification timestamp
 # necessary packages:   libimage-exiftool-perl
 
 #
@@ -101,12 +100,14 @@ fi
 # LOOP THROUGH FILES IN PATH
 #
 cd ${IMAGE_PATH}
-# loop through all files, use \n as separator to support whitespaces in filename; order alphabetically while interpret numbers
+# loop through all files, use \n as separator to support whitespaces in
+# filename; order alphabetically while interpret numbers
 find . -type f -printf "%f\n" | sort -V  | while read i
 do
 
   # get datetime from exif data
-  DATETIME="$(exiftool -t -s -d "${PATTERN}" -CreateDate "$i" | sed -r 's/^\s*CreateDate\s*//g' )"
+  EXIF_CREATE_DATE="$(exiftool -t -s -d "${PATTERN}" -CreateDate "$i")"
+  DATETIME="$(echo "${EXIF_CREATE_DATE}" | sed -r 's/^\s*CreateDate\s*//g')"
 
   # if not available, get last modification time from file
   if [ -z "$DATETIME" ]; then
