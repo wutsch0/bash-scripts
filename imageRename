@@ -24,9 +24,9 @@ generate_filename() {
 
   local counter=0
   local new_filename="${datetime}.${extension}"
-  while [[ -f "${new_filename}" ]]; do
-     counter=$((counter + 1))
-     new_filename="${datetime} (${counter}).${extension}"
+  while [[ "${new_filename}" != "${old_filename}" && -f "${new_filename}" ]]; do
+    counter=$((counter + 1))
+    new_filename="${datetime} (${counter}).${extension}"
   done
 
   echo "${new_filename}"
@@ -121,4 +121,5 @@ main() {
   done
 }
 
+# call main function and hand over all parameters
 main "$@"
