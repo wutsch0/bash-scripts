@@ -2,13 +2,6 @@
 # Rename image files using their exif or last modification timestamp
 # necessary packages:   libimage-exiftool-perl
 
-#
-# DEFINE DEFAULT VALUES
-#
-DRYRUN='false'
-EXIFUPDATE='false'
-PATTERN="%Y-%m-%d %H.%M.%S"
-
 
 #######################################
 # Generates new filename
@@ -44,57 +37,37 @@ generate_filename() {
 # TODO: split into more functions
 #######################################
 main() {
-  #
-  # READ SCRIPT ARGUMENTS
-  #
-  local ADDITIONAL=()
-  while [[ $# -gt 0 ]]; do
-    key="${1}"
-    case "${key}" in
-      -e|--exifupdate)
-        EXIFUPDATE='true'
-        shift # past argument
-      ;;
-      -d|--dryrun)
-        DRYRUN='true'
-        shift # past argument
-      ;;
-      -p|--pattern)
-        PATTERN="${2}"
-        shift # past argument
-        shift # past value
-      ;;
-      *)  # unknown option
-        ADDITIONAL+=("${1}") # save it in an array for later
-        shift # past argument
-      ;;
+  # define default values
+  local DRYRUN='false'
+  local EXIFUPDATE='false'
+  local PATTERN="%Y-%m-%d %H.%M.%S"
+  local IMAGE_PATH
+
+  # read script arguments
+  while getopts 'dep:' flag; do
+    case "${flag}" in
+      e) EXIFUPDATE='true' ;;
+      d) DRYRUN='true' ;;
+      p) PATTERN="${OPTARG}" ;;
     esac
   done
-  readonly ADDITIONAL
+  shift $((OPTIND - 1)) # image path is now in $1
+
   readonly DRYRUN
   readonly EXIFUPDATE
   readonly PATTERN
 
-  #
-  # VALIDATE ARGUMENTS
-  #
-  if [[ ${#ADDITIONAL[@]} -gt 0 ]];
-  then
-    if [[ ${#ADDITIONAL[@]} -gt 1 ]];
-    then
-      echo "To many parameters. Exiting"
-      exit 3
-    else
-      readonly IMAGE_PATH="${ADDITIONAL[0]}"
-    fi
+  # validate arguments
+  if [[ "$#" -ne 1 ]]; then
+    echo "Expecting exactly one parameter. Exiting"
+    exit 1
   else
-    echo "To few parameters. Exiting"
-    exit 4
+    readonly IMAGE_PATH="${1}"
   fi
 
   if [[ ! -d "${IMAGE_PATH}" ]]; then
     echo "Path '${IMAGE_PATH}' does not exist. Existing"
-    exit 5
+    exit 2
   fi
 
 
