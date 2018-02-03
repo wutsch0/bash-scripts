@@ -112,12 +112,14 @@ do
   # if not available, get last modification time from file
   if [ -z "$DATETIME" ]; then
     DATETIME="$(date -r "$i" "+${PATTERN}")"
+    echo "${i}: last modification time used"
 
     if [ "$EXIFUPDATE" == "true" ]; then
       EXIF_DATETIME="$(date -r "$i" "+%Y-%m-%d %H:%M:%S")"
       echo "${i}: update exif timestamp to ${EXIF_DATETIME}"
       if [ "$DRYRUN" == "false" ]; then
-        exiftool -overwrite_original_in_place -CreateDate="${EXIF_DATETIME}" "${i}" 2>&1 >/dev/null
+        exiftool -overwrite_original_in_place \
+          -CreateDate="${EXIF_DATETIME}" "${i}" 2>&1 >/dev/null
       fi
     fi
   fi
