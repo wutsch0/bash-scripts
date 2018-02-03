@@ -2,6 +2,11 @@
 # Rename image files using their exif or last modification timestamp
 # necessary packages:   libimage-exiftool-perl
 
+# define global default values
+DRYRUN='false'
+EXIFUPDATE='false'
+IMAGE_PATH="."
+PATTERN="%Y-%m-%d %H.%M.%S"
 
 #######################################
 # Generates new filename
@@ -11,7 +16,7 @@
 #   $1 timestamp of file as string
 #   $2 previous filename
 # Returns:
-#   $1 new filename
+#   new filename
 #######################################
 generate_filename() {
   local datetime
@@ -34,20 +39,136 @@ generate_filename() {
 }
 
 #######################################
-# TODO: split into more functions
+# Get exif timestamp from file
+# Globals:
+#   PATTERN
+# Arguments:
+#   $1 filename
+# Returns:
+#   timestamp
 #######################################
-main() {
-  # define default values
-  local DRYRUN='false'
-  local EXIFUPDATE='false'
-  local PATTERN="%Y-%m-%d %H.%M.%S"
-  local IMAGE_PATH
+get_exif_timestamp() {
+  local filename
+  readonly filename="${1}"
 
-  # read script arguments
+  # get datetime from exif data
+  local exif_create_date
+  exif_create_date="$(exiftool -t -s -d "${PATTERN}" -CreateDate "${filename}")"
+  local timestamp="${exif_create_date#CreateDate[[:space:]]*}"
+
+  echo "${timestamp}"
+  return 0
+}
+
+#######################################
+# Set exif timestamp to last modified
+# timestamp of file
+# Globals:
+#   EXIFUPDATE
+#   DRYRUN
+# Arguments:
+#   $1 filename
+# Returns:
+#   None
+#######################################
+set_exif_timestamp_to_last_modified() {
+  local filename
+  readonly filename="${1}"
+
+  if [[ "${EXIFUPDATE}" == 'true' ]]; then
+    local exif_timestamp
+    exif_timestamp="$(date -r "${filename}" "+%Y-%m-%d %H:%M:%S")"
+    if [[ "${DRYRUN}" == 'false' ]]; then
+      exiftool -overwrite_original_in_place \
+        -CreateDate="${exif_timestamp}" "${filename}" 2>&1 >/dev/null
+    fi
+  fi
+
+  return 0
+}
+
+########################################
+# Get exif timestamp from file. If not
+# available, get last modified timestamp
+# Globals:
+#   PATTERN
+#   EXIFUPDATE
+#   DRYRUN
+# Arguments:
+#   $1 filename
+# Returns:
+#   0: exif timestamp
+#   1: last modified timestamp
+########################################
+get_timestamp() {
+  local filename
+  readonly filename="${1}"
+
+  # get datetime from exif data
+  local timestamp
+  timestamp=$(get_exif_timestamp "${filename}")
+
+  # if not available, get last modification time from file
+  local message
+  if [[ -z "${timestamp}" ]]; then
+    timestamp="$(date -r "${filename}" "+${PATTERN}")"
+
+    $(set_exif_timestamp_to_last_modified "${filename}")
+
+    echo "${timestamp}"
+    return 1 # indicate that timestamp if not exif, but last modified
+  fi
+
+  echo "${timestamp}"
+  return 0
+}
+
+########################################
+# Rename a specified file
+# Globals:
+#   DRYRUN
+# Arguments:
+#   $1 old filename
+#   $2 new filename
+# Returns:
+#   message
+########################################
+rename_file() {
+  local old_filename
+  local new_filename
+  readonly old_filename="${1}"
+  readonly new_filename="${2}"
+
+  if [[ "${old_filename}" != "${new_filename}" ]]; then
+    echo "${old_filename}  -->  ${new_filename}"
+    if [[ "${DRYRUN}" == 'false' ]]; then
+      mv "${old_filename}" "${new_filename}"
+    fi
+  else
+    echo "keep  ${new_filename}"
+  fi
+
+  return 0
+}
+
+########################################
+# Bind all parameters to flags and path
+# Globals:
+#   DRYRUN
+#   EXIFUPDATE
+#   IMAGE_PATH
+#   PATTERN
+# Arguments:
+#   $@ all arguments of script
+# Returns:
+#   None
+########################################
+bind_arguments() {
+  local flag
   while getopts 'dep:' flag; do
     case "${flag}" in
-      e) EXIFUPDATE='true' ;;
       d) DRYRUN='true' ;;
+      e) EXIFUPDATE='true' ;;
       p) PATTERN="${OPTARG}" ;;
     esac
   done
@@ -61,16 +182,23 @@ main() {
   if [[ "$#" -ne 1 ]]; then
     echo "Expecting exactly one parameter. Exiting"
     exit 1
-  else
-    readonly IMAGE_PATH="${1}"
   fi
 
-  if [[ ! -d "${IMAGE_PATH}" ]]; then
-    echo "Path '${IMAGE_PATH}' does not exist. Existing"
-    exit 2
-  fi
+  readonly IMAGE_PATH="${1}"
 
+  return 0
+}
 
+########################################
+# Write information about DRYRUN mode
+# Globals:
+#   DRYRUN
+# Arguments:
+#   None
+# Returns:
+#   None
+########################################
+echo_dryrun_info() {
   if [[ "${DRYRUN}" == 'true' ]]; then
     echo ""
     echo "NOTE: This is a DRYRUN only"
@@ -78,46 +206,36 @@ main() {
     echo ""
   fi
 
+  return 0
+}
 
-  #
-  # LOOP THROUGH FILES IN PATH
-  #
+main() {
+  # read script arguments
+  bind_arguments "$@"
+
+  if [[ ! -d "${IMAGE_PATH}" ]]; then
+    echo "Path '${IMAGE_PATH}' does not exist. Existing"
+    exit 2
+  fi
+
+  echo_dryrun_info
+
   cd "${IMAGE_PATH}"
+
   # loop through all files, use \n as separator to support whitespaces in
   # filename; order alphabetically while interpret numbers
+  local filename
+  local timestamp
+  local new_filename
   find . -type f -printf "%f\n" | sort -V  | while read filename; do
 
-    # get datetime from exif data
-    exif_create_date="$(exiftool -t -s -d "${PATTERN}" -CreateDate "${filename}")"
-    timestamp="${exif_create_date#CreateDate[[:space:]]*}"
-
-    # if not available, get last modification time from file
-    if [[ -z "${timestamp}" ]]; then
-      timestamp="$(date -r "${filename}" "+${PATTERN}")"
+    timestamp=$(get_timestamp "${filename}")
+    if [[ $? -eq 1 ]]; then
       echo "${filename}: last modification time used"
-
-      if [[ "${EXIFUPDATE}" == 'true' ]]; then
-        exif_timestamp="$(date -r "${filename}" "+%Y-%m-%d %H:%M:%S")"
-        echo "${filename}: update exif timestamp to ${exif_timestamp}"
-        if [[ "${DRYRUN}" == 'false' ]]; then
-          exiftool -overwrite_original_in_place \
-            -CreateDate="${exif_timestamp}" "${filename}" 2>&1 >/dev/null
-        fi
-      fi
     fi
-
-    # get new filename
     new_filename=$(generate_filename "${timestamp}" "${filename}")
 
-    # rename file if necessary
-    if [[ "${filename}" != "${new_filename}" ]]; then
-      echo "${filename}  -->  ${new_filename}"
-      if [[ "${DRYRUN}" == 'false' ]]; then
-        mv "${filename}" "${new_filename}"
-      fi
-    else
-      echo "keep  ${new_filename}"
-    fi
+    rename_file "${filename}" "${new_filename}"
   done
 }
 
