@@ -1,0 +1,15 @@
+#!/bin/bash
+# Script to de-/activate a touchpad on Xubuntu
+# To be used if keyboard function keys don't work. Will display
+# a status notification on each execution
+
+# check if touchpad is ON
+touchpad_status=`synclient | grep TouchpadOff | cut -d\= -f2`
+
+if [[ "$touchpad_status" -eq "0" ]]; then
+  synclient TouchpadOff=1
+  notify-send -i dialog-error "Touchpad disabled"
+else
+  synclient TouchpadOff=0
+  notify-send -i dialog-information "Touchpad enabled"
+fi
