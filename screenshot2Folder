@@ -1,0 +1,12 @@
+#!/bin/bash
+# Script to save screenshots in defaults picture folder on Xubuntu
+# while keeping the default behavior of being prompted with an
+# application to select
+
+# keep content of TMPDIR to restore later
+KEEPDIR="${TEMDIR}"
+
+export TMPDIR="${HOME}/Bilder"
+exec xfce4-screenshooter -f
+export TMPDIR="${KEEPDIR}"
+
